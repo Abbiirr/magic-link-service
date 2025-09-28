@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: magic-link-service
+
+  datasource:
+    # Use in-memory H2 for local development (no external DB dependency)
+    url: jdbc:h2:mem:magiclink;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  thymeleaf:
+    cache: false
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    # Use environment variables for credentials (safer). Defaults shown for convenience — override in CI/production.
+    username: ${MAIL_USERNAME:shahinbeg80@gmail.com}
+    password: ${MAIL_PASSWORD:zstnslhqoiprmdmh}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+
+  session:
+    # Use in-memory HTTP session (no Redis)
+    store-type: none
+
+  # Use Spring's simple cache (ConcurrentMapCache) which requires no extra dependency
+  cache:
+    type: simple
+
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start_and_stop
+
+server:
+  port: 8080
+
+app:
+  magic-link:
+    token-expiry-minutes: 15
+    base-url: http://localhost:8080
+
+# Disable Redis usage
+app.redis:
+  enabled: false
+
+# Notes:
+# - When running locally the app will use the in-memory H2 DB and in-memory cache.
+# - Supply mail credentials via environment variables or .env if using docker-compose.
