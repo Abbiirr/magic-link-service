@@ -33,11 +33,29 @@ public class UserService implements UserDetailsService {
         });
     }
 
+    public User findOrCreateFromGoogle(String email, String googleId) {
+        return userRepository.findByEmail(email).orElseGet(() -> {
+            User u = new User();
+            u.setEmail(email);
+            u.setGoogleId(googleId);
+            u.setEmailVerified(true);
+            u.setEnabled(true);
+            u.setCreatedAt(LocalDateTime.now());
+            u.setLastLoginAt(LocalDateTime.now());
+            return userRepository.save(u);
+        });
+    }
+
     public void updateLastLogin(String email) {
         userRepository.findByEmail(email).ifPresent(u -> {
             u.setLastLoginAt(LocalDateTime.now());
             userRepository.save(u);
         });
     }
-}
 
+    public boolean hasGoogleAccount(String email) {
+        return userRepository.findByEmail(email)
+                .map(u -> u.getGoogleId() != null)
+                .orElse(false);
+    }
+}

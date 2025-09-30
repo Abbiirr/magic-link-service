@@ -1,6 +1,8 @@
 package org.example.magiclink.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.magiclink.entity.User;
 import org.example.magiclink.service.EmailService;
 import org.example.magiclink.service.TokenService;
 import org.example.magiclink.service.UserService;
@@ -22,6 +24,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Optional;
 
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class AuthController {
@@ -42,7 +45,11 @@ public class AuthController {
             return "redirect:/login?error";
         }
 
-        userService.findOrCreate(email);
+        // Check if user has a Google account
+        if (!userService.hasGoogleAccount(email)) {
+            return "redirect:/login?error=no_google_account";
+        }
+
         String token = tokenService.createToken(email, request);
 
         String baseUrl = request.getRequestURL().toString().replace(request.getRequestURI(), "") + request.getContextPath();
@@ -61,86 +68,36 @@ public class AuthController {
     @GetMapping("/login/ott")
     public String consumeToken(
             HttpServletRequest request,
-            HttpServletResponse response,
             @RequestParam("token") String token,
-            Authentication authentication) throws IOException {
+            Model model) {
 
-        // Validate the token first
-        Optional<String> opt = tokenService.validateAndConsume(token);
-        if (opt.isEmpty()) {
-            return "redirect:/login?error";
+        // Validate token without consuming it yet
+        Optional<String> emailOpt = tokenService.validateToken(token);
+        if (emailOpt.isEmpty()) {
+            return "redirect:/login?error=invalid_token";
         }
 
-        String expectedEmail = opt.get();
+        String expectedEmail = emailOpt.get();
 
-        // Check if user is already authenticated via Google OAuth2
-        if (authentication != null && authentication.isAuthenticated()
-                && authentication instanceof OAuth2AuthenticationToken) {
-
-            OAuth2AuthenticationToken oauth2Token = (OAuth2AuthenticationToken) authentication;
-            OAuth2User oauth2User = oauth2Token.getPrincipal();
-            String googleEmail = oauth2User.getAttribute("email");
-
-            // Verify the Google email matches the magic link email
-            if (googleEmail != null && googleEmail.equalsIgnoreCase(expectedEmail)) {
-                // User is authenticated with correct Google account
-                authenticateUser(request, expectedEmail);
-                return "redirect:/";
-            } else {
-                // Google email doesn't match - need to re-authenticate
-                HttpSession session = request.getSession(true);
-                session.setAttribute("pending_magic_link_email", expectedEmail);
-                session.setAttribute("pending_magic_link_token", token);
-                return "redirect:/login/ott/verify-google";
-            }
-        }
-
-        // User is not authenticated with Google - store token and redirect to Google login
+        // Store token in session for verification after OAuth
         HttpSession session = request.getSession(true);
-        session.setAttribute("pending_magic_link_email", expectedEmail);
-        session.setAttribute("pending_magic_link_token", token);
+        session.setAttribute("pending_magic_token", token);
+        session.setAttribute("pending_magic_email", expectedEmail);
 
-        return "redirect:/login/ott/verify-google";
+        model.addAttribute("email", expectedEmail);
+
+        // Redirect to silent check page
+        return "magic-link-verify";
     }
 
-    @GetMapping("/login/ott/verify-google")
-    public String verifyGooglePage(HttpSession session, Model model) {
-        String expectedEmail = (String) session.getAttribute("pending_magic_link_email");
+    @GetMapping("/login/ott/verify-manual")
+    public String verifyManual(HttpSession session, Model model) {
+        String expectedEmail = (String) session.getAttribute("pending_magic_email");
         if (expectedEmail == null) {
-            return "redirect:/login?error";
+            return "redirect:/login?error=session_expired";
         }
         model.addAttribute("email", expectedEmail);
-        return "verify-google";
-    }
-
-    @GetMapping("/oauth2/success")
-    public String oauth2Success(HttpServletRequest request, OAuth2AuthenticationToken authentication) {
-        HttpSession session = request.getSession(false);
-
-        if (session != null) {
-            String expectedEmail = (String) session.getAttribute("pending_magic_link_email");
-
-            if (expectedEmail != null) {
-                OAuth2User oauth2User = authentication.getPrincipal();
-                String googleEmail = oauth2User.getAttribute("email");
-
-                // Verify emails match
-                if (googleEmail != null && googleEmail.equalsIgnoreCase(expectedEmail)) {
-                    authenticateUser(request, expectedEmail);
-
-                    // Clean up session
-                    session.removeAttribute("pending_magic_link_email");
-                    session.removeAttribute("pending_magic_link_token");
-
-                    return "redirect:/";
-                } else {
-                    return "redirect:/login?error=email_mismatch";
-                }
-            }
-        }
-
-        // If no pending magic link, just redirect to home
-        return "redirect:/";
+        return "verify-manual";
     }
 
     private void authenticateUser(HttpServletRequest request, String email) {

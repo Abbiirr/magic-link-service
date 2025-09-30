@@ -36,15 +36,27 @@ public class TokenService {
         return token;
     }
 
+    public Optional<String> validateToken(String token) {
+        Optional<OneTimeTokenEntity> opt = tokenRepository.findByToken(token);
+        if (opt.isEmpty()) return Optional.empty();
+        OneTimeTokenEntity e = opt.get();
+        if (e.isUsed()) return Optional.empty();
+        if (e.getExpiresAt() == null || e.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return Optional.empty();
+        }
+        return Optional.of(e.getUsername());
+    }
+
     public Optional<String> validateAndConsume(String token) {
         Optional<OneTimeTokenEntity> opt = tokenRepository.findByToken(token);
         if (opt.isEmpty()) return Optional.empty();
         OneTimeTokenEntity e = opt.get();
         if (e.isUsed()) return Optional.empty();
-        if (e.getExpiresAt() == null || e.getExpiresAt().isBefore(LocalDateTime.now())) return Optional.empty();
+        if (e.getExpiresAt() == null || e.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return Optional.empty();
+        }
         e.setUsed(true);
         tokenRepository.save(e);
         return Optional.of(e.getUsername());
     }
 }
-

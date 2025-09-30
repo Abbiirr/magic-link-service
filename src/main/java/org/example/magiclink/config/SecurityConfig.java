@@ -20,6 +20,9 @@ public class SecurityConfig {
 
     private final UserService userService;
 
+    private final OAuth2SuccessHandler oauth2SuccessHandler;
+    private final OAuth2AuthorizationRequestCustomizer authorizationRequestCustomizer;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -30,8 +33,6 @@ public class SecurityConfig {
                     "/css/**",
                     "/js/**",
                     "/check-email",
-                    "/login/ott",
-                    "/login/ott/generate",
                     "/oauth2/**",
                     "/login/oauth2/**"
                 ).permitAll()
@@ -39,8 +40,11 @@ public class SecurityConfig {
             )
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/login")
-                .defaultSuccessUrl("/oauth2/success", true)
-                .failureUrl("/login?error")
+                .authorizationEndpoint(authorization -> authorization
+                    .authorizationRequestResolver(authorizationRequestCustomizer)
+                )
+                .successHandler(oauth2SuccessHandler)
+                .failureUrl("/login/ott/verify-manual")
             )
             .formLogin(form -> form
                 .loginPage("/login").permitAll()
