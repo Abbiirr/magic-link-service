@@ -67,8 +67,9 @@ server:
 app:
   magic-link:
     token-expiry-minutes: 15
-    base-url: http://localhost:8080
-
+    base-url: https://singularly-holy-aphid.ngrok-free.app
+  qr-login:
+    token-expiry-minutes: 5
 # Disable Redis usage
 app.redis:
   enabled: false

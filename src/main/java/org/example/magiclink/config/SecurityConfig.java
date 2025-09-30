@@ -21,6 +21,7 @@ public class SecurityConfig {
     private final UserService userService;
 
     private final OAuth2SuccessHandler oauth2SuccessHandler;
+
     private final OAuth2AuthorizationRequestCustomizer authorizationRequestCustomizer;
 
     @Bean
@@ -34,7 +35,9 @@ public class SecurityConfig {
                     "/js/**",
                     "/check-email",
                     "/oauth2/**",
-                    "/login/oauth2/**"
+                    "/login/oauth2/**",
+                    "/qr/scan",
+                    "/qr/status"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
