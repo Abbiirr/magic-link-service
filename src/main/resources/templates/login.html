@@ -10,8 +10,9 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                        <h3 class="card-title text-center">Sign In with Magic Link</h3>
+                        <h3 class="card-title text-center mb-4">Sign In</h3>
 
+                        <!-- Magic Link Form -->
                         <form th:action="@{/login/ott/generate}" method="post">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Email Address</label>
@@ -23,8 +24,19 @@
                             </button>
                         </form>
 
+                        <!-- Error Messages -->
                         <div th:if="${param.error}" class="alert alert-danger mt-3">
-                            Invalid email or token has expired.
+                            <span th:if="${param.error[0] == 'email_mismatch'}">
+                                The Google account email does not match the magic link email. Please try again.
+                            </span>
+                            <span th:unless="${param.error[0] == 'email_mismatch'}">
+                                Invalid email or token has expired.
+                            </span>
+                        </div>
+
+                        <!-- Info Message -->
+                        <div class="alert alert-info mt-3">
+                            <small>You'll need to verify your identity with Google when clicking the magic link.</small>
                         </div>
                     </div>
                 </div>
@@ -33,4 +45,3 @@
     </div>
 </body>
 </html>
-

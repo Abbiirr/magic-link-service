@@ -24,8 +24,23 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/login/**", "/css/**", "/js/**", "/check-email", "/login/ott", "/login/ott/generate").permitAll()
+                .requestMatchers(
+                    "/",
+                    "/login/**",
+                    "/css/**",
+                    "/js/**",
+                    "/check-email",
+                    "/login/ott",
+                    "/login/ott/generate",
+                    "/oauth2/**",
+                    "/login/oauth2/**"
+                ).permitAll()
                 .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .loginPage("/login")
+                .defaultSuccessUrl("/oauth2/success", true)
+                .failureUrl("/login?error")
             )
             .formLogin(form -> form
                 .loginPage("/login").permitAll()
@@ -35,7 +50,7 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
             )
-            .csrf(csrf -> csrf.disable()); // disabled for simplicity in this starter
+            .csrf(csrf -> csrf.disable());
 
         return http.build();
     }
@@ -50,7 +65,6 @@ public class SecurityConfig {
         return userService;
     }
 
-    // Use AuthenticationConfiguration to obtain the auto-configured AuthenticationManager
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();

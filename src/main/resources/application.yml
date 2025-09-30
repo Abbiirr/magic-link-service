@@ -40,6 +40,22 @@ spring:
   cache:
     type: simple
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:83857630873-3um7tnfj5jmpjdk3uuvrfugg8j9d59ph.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            scope:
+              - openid
+              - email
+              - profile
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+        provider:
+          google:
+            issuer-uri: https://accounts.google.com
+
   docker:
     compose:
       enabled: true
