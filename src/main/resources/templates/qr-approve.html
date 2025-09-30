@@ -14,8 +14,7 @@
 
                     <div class="alert alert-warning">
                         <strong>⚠️ Security Check</strong>
-                        <p class="mb-0">A device is requesting to login to your account. Please verify the details
-                            below.</p>
+                        <p class="mb-0">A device is requesting to login to your account. Please verify the details below.</p>
                     </div>
 
                     <div class="mb-3">
@@ -57,28 +56,26 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Approving...';
 
-        console.log('[Approve] Starting request');
-
         fetch('/qr/approve?token=' + token, {method: 'POST'})
             .then(response => {
-                console.log('[Approve] Got response, status:', response.status);
-                console.log('[Approve] Content-Type:', response.headers.get('content-type'));
                 if (!response.ok) {
                     throw new Error('HTTP error ' + response.status);
                 }
                 return response.json();
             })
             .then(data => {
-                console.log('[Approve] Parsed JSON:', data);
                 if (data.success) {
-                    showResult('success', 'Login approved successfully!', 'The device can now access your account.');
+                    showResult('success', 'Login Approved!', 'The device has been granted access to your account.');
                 } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '✓ Yes, Approve This Login';
                     showResult('danger', 'Failed to approve', data.error || 'Please try again.');
                 }
             })
             .catch(err => {
-                console.error('[Approve] Caught error:', err);
-                showResult('danger', 'Error occurred: ' + err.message, 'Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '✓ Yes, Approve This Login';
+                showResult('danger', 'Error: ' + err.message, 'Please try again.');
             });
     }
 
@@ -91,14 +88,17 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showResult('info', 'Login denied', 'The device has been denied access.');
+                    showResult('info', 'Login Denied', 'The device has been denied access.');
                 } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '✗ No, Deny This Login';
                     showResult('danger', 'Failed to deny', 'Please try again.');
                 }
             })
             .catch(err => {
-                console.error(err);
-                showResult('danger', 'Error occurred', 'Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '✗ No, Deny This Login';
+                showResult('danger', 'Error: ' + err.message, 'Please try again.');
             });
     }
 

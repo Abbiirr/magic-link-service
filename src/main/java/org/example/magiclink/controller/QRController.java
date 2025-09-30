@@ -67,7 +67,7 @@ public class QRController {
         if (principal instanceof OAuth2AuthenticationToken) {
             OAuth2AuthenticationToken oauth = (OAuth2AuthenticationToken) principal;
             OAuth2User oauth2User = oauth.getPrincipal();
-            return oauth2User.getAttribute("email");
+            return oauth2User.getAttribute("name");
         }
         return principal.getName();
     }
@@ -203,18 +203,13 @@ public class QRController {
             HttpServletResponse response) {
 
         Map<String, Object> responseMap = new HashMap<>();
-        String requestIP = request.getRemoteAddr();
 
         QRTokenEntity.QRTokenStatus status = qrService.getTokenStatus(token);
         responseMap.put("status", status.toString());
         responseMap.put("scanned", qrService.wasScanned(token));
 
-        System.out.println("[Status] IP: " + requestIP + ", Token: " + token + ", Status: " + status);
-
         HttpSession session = request.getSession(false);
         String pendingToken = session != null ? (String) session.getAttribute("pending_qr_token") : null;
-
-        System.out.println("[Status] Pending: " + pendingToken + ", Match: " + token.equals(pendingToken));
 
         if (token.equals(pendingToken)) {
             Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
@@ -222,58 +217,48 @@ public class QRController {
                     currentAuth.isAuthenticated() &&
                     !"anonymousUser".equals(currentAuth.getName());
 
-            System.out.println("[Status] Already auth: " + alreadyAuth + " (user: " +
-                    (currentAuth != null ? currentAuth.getName() : "null") + ")");
-
             if (alreadyAuth) {
                 responseMap.put("authenticated", true);
                 responseMap.put("redirectUrl", "/");
+                session.removeAttribute("pending_qr_token");
             } else if (status == QRTokenEntity.QRTokenStatus.APPROVED) {
-                System.out.println("[Status] Starting authentication for IP: " + requestIP);
-
                 try {
                     Optional<String> emailOpt = qrService.consumeToken(token);
-                    System.out.println("[Status] consumeToken result: " + emailOpt.isPresent());
 
                     if (emailOpt.isPresent()) {
                         String email = emailOpt.get();
-                        System.out.println("[Status] Loading user: " + email);
-
                         UserDetails userDetails = (UserDetails) userService.loadUserByUsername(email);
-                        System.out.println("[Status] UserDetails loaded: " + userDetails.getUsername());
 
                         Authentication auth = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities()
                         );
 
                         SecurityContextHolder.getContext().setAuthentication(auth);
-                        System.out.println("[Status] Auth set in SecurityContext");
-
-                        HttpSession newSession = request.getSession(true);
-                        System.out.println("[Status] Session ID: " + newSession.getId());
 
                         SecurityContextRepository securityContextRepository =
                                 new HttpSessionSecurityContextRepository();
                         securityContextRepository.saveContext(
                                 SecurityContextHolder.getContext(), request, response
                         );
-                        System.out.println("[Status] SecurityContext saved to session");
 
                         userService.updateLastLogin(email);
 
                         responseMap.put("authenticated", true);
                         responseMap.put("redirectUrl", "/");
-                        System.out.println("[Status] ✓ Auth SUCCESS for " + email + " from IP: " + requestIP);
+                        session.removeAttribute("pending_qr_token");
+
+                        log.info("QR auth success for: {}", email);
                     } else {
-                        System.out.println("[Status] ✗ consumeToken returned empty");
+                        responseMap.put("error", "Token already consumed");
                     }
                 } catch (Exception e) {
-                    System.out.println("[Status] ✗ EXCEPTION during auth: " + e.getMessage());
-                    e.printStackTrace();
+                    log.error("Auth failed during QR login", e);
+                    qrService.denyToken(token);
+                    responseMap.put("status", "DENIED");
+                    responseMap.put("error", "Authentication failed");
+                    session.removeAttribute("pending_qr_token");
                 }
             }
-        } else {
-            System.out.println("[Status] Skipping - different device (IP: " + requestIP + ")");
         }
 
         return ResponseEntity.ok(responseMap);

@@ -69,7 +69,7 @@
     const token = /*[[${token}]]*/ '';
     let pollInterval;
     let pollCount = 0;
-    const maxPolls = 150; // 5 minutes at 2 second intervals
+    const maxPolls = 150;
 
     function checkStatus() {
         pollCount++;
@@ -83,7 +83,7 @@
         fetch('/qr/status?token=' + token)
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'APPROVED' && data.authenticated) {
+                if (data.authenticated) {
                     clearInterval(pollInterval);
                     showApproved();
                     setTimeout(() => {
@@ -95,6 +95,9 @@
                 } else if (data.status === 'EXPIRED') {
                     clearInterval(pollInterval);
                     showExpired();
+                } else if (data.error) {
+                    clearInterval(pollInterval);
+                    showDenied();
                 }
             })
             .catch(err => console.error('Poll error:', err));
@@ -115,9 +118,8 @@
         document.getElementById('expiredState').style.display = 'block';
     }
 
-    // Start polling every 2 seconds
     pollInterval = setInterval(checkStatus, 2000);
-    checkStatus(); // Initial check
+    checkStatus();
 </script>
 </body>
 </html>
