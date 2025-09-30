@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,17 +31,17 @@ public class QRService {
     @Value("${app.magic-link.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    public QRTokenEntity generateQRToken(String userEmail, String deviceInfo, String ip, String sessionId) {
-        String token = UUID.randomUUID().toString();
-
+    public QRTokenEntity generateQRToken(String userEmail, String generatingSessionId) {
         QRTokenEntity entity = new QRTokenEntity();
-        entity.setToken(token);
+        entity.setToken(UUID.randomUUID().toString());
         entity.setUserEmail(userEmail);
-        entity.setGeneratingSessionId(sessionId);
+        entity.setGeneratingSessionId(generatingSessionId);
         entity.setExpiresAt(LocalDateTime.now().plusMinutes(tokenExpiryMinutes));
         entity.setStatus(QRTokenEntity.QRTokenStatus.PENDING);
-        entity.setDeviceInfo(deviceInfo);
-        entity.setIp(ip);
+        entity.setScannedAt(null);
+        entity.setScanningSessionId(null);
+        entity.setDeviceInfo(null);
+        entity.setIp(null);
 
         return qrTokenRepository.save(entity);
     }
@@ -60,59 +61,94 @@ public class QRService {
 
     public Optional<QRTokenEntity> validateToken(String token) {
         Optional<QRTokenEntity> opt = qrTokenRepository.findByToken(token);
-        if (opt.isEmpty()) return Optional.empty();
-
-        QRTokenEntity entity = opt.get();
-
-        // Check if expired
-        if (entity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            entity.setStatus(QRTokenEntity.QRTokenStatus.EXPIRED);
-            qrTokenRepository.save(entity);
+        if (opt.isEmpty()) {
             return Optional.empty();
         }
 
-        return opt;
+        QRTokenEntity entity = opt.get();
+        if (hasExpired(entity)) {
+            markExpired(entity);
+            return Optional.empty();
+        }
+
+        return Optional.of(entity);
+    }
+
+    public Optional<QRTokenEntity> findToken(String token) {
+        return qrTokenRepository.findByToken(token);
+    }
+
+    public boolean hasExpired(QRTokenEntity token) {
+        return token.getExpiresAt().isBefore(LocalDateTime.now());
+    }
+
+    public void markExpired(QRTokenEntity token) {
+        if (token.getStatus() != QRTokenEntity.QRTokenStatus.EXPIRED) {
+            token.setStatus(QRTokenEntity.QRTokenStatus.EXPIRED);
+            qrTokenRepository.save(token);
+        }
     }
 
     public boolean approveToken(String token) {
-        System.out.println("[approveToken] Starting for token: " + token);
-        Optional<QRTokenEntity> opt = validateToken(token);
+        Optional<QRTokenEntity> opt = qrTokenRepository.findByToken(token);
         if (opt.isEmpty()) {
-            System.out.println("[approveToken] Token validation failed");
             return false;
         }
 
         QRTokenEntity entity = opt.get();
-        System.out.println("[approveToken] Current status: " + entity.getStatus());
+        if (hasExpired(entity)) {
+            markExpired(entity);
+            return false;
+        }
 
         if (entity.getStatus() != QRTokenEntity.QRTokenStatus.PENDING) {
-            System.out.println("[approveToken] ERROR: Token not in PENDING state!");
+            return false;
+        }
+
+        if (entity.getScanningSessionId() == null) {
             return false;
         }
 
         entity.setStatus(QRTokenEntity.QRTokenStatus.APPROVED);
         qrTokenRepository.save(entity);
         log.info("QR token approved: {}", token);
-        System.out.println("[approveToken] Successfully approved");
         return true;
     }
 
     public boolean denyToken(String token) {
-        Optional<QRTokenEntity> opt = validateToken(token);
-        if (opt.isEmpty()) return false;
+        Optional<QRTokenEntity> opt = qrTokenRepository.findByToken(token);
+        if (opt.isEmpty()) {
+            return false;
+        }
 
         QRTokenEntity entity = opt.get();
+        if (hasExpired(entity)) {
+            markExpired(entity);
+            return false;
+        }
+
         entity.setStatus(QRTokenEntity.QRTokenStatus.DENIED);
         qrTokenRepository.save(entity);
         log.info("QR token denied: {}", token);
         return true;
     }
 
-    public Optional<String> consumeToken(String token) {
-        Optional<QRTokenEntity> opt = validateToken(token);
-        if (opt.isEmpty()) return Optional.empty();
+    public Optional<String> consumeToken(String token, String sessionId) {
+        Optional<QRTokenEntity> opt = qrTokenRepository.findByToken(token);
+        if (opt.isEmpty()) {
+            return Optional.empty();
+        }
 
         QRTokenEntity entity = opt.get();
+        if (hasExpired(entity)) {
+            markExpired(entity);
+            return Optional.empty();
+        }
+
+        if (!Objects.equals(entity.getScanningSessionId(), sessionId)) {
+            return Optional.empty();
+        }
+
         if (entity.getStatus() != QRTokenEntity.QRTokenStatus.APPROVED) {
             return Optional.empty();
         }
@@ -132,10 +168,5 @@ public class QRService {
     public void saveToken(QRTokenEntity token) {
         qrTokenRepository.save(token);
     }
-
-    public boolean wasScanned(String token) {
-        return qrTokenRepository.findByToken(token)
-                .map(e -> e.getScannedAt() != null)
-                .orElse(false);
-    }
 }
+

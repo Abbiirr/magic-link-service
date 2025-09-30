@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Approve Login Request</title>
@@ -13,28 +13,35 @@
                     <h3 class="card-title text-center mb-4">Login Request</h3>
 
                     <div class="alert alert-warning">
-                        <strong>⚠️ Security Check</strong>
+                        <strong>Security Check</strong>
                         <p class="mb-0">A device is requesting to login to your account. Please verify the details below.</p>
+                    </div>
+
+                    <div id="awaitingNotice" class="alert alert-info" th:if="${awaitingScan}">
+                        Waiting for a device to scan this QR code. This page will update automatically once a scan occurs.
                     </div>
 
                     <div class="mb-3">
                         <strong>Device Information:</strong>
-                        <p class="text-muted mb-0" th:text="${deviceInfo}"></p>
+                        <p id="deviceInfoValue" class="text-muted mb-0"
+                           th:text="${deviceInfo} ?: 'Waiting for device details...'"></p>
                     </div>
 
                     <div class="mb-4">
                         <strong>IP Address:</strong>
-                        <p class="text-muted mb-0" th:text="${ip}"></p>
+                        <p id="ipValue" class="text-muted mb-0"
+                           th:text="${ip} ?: 'Waiting for device details...'"></p>
                     </div>
 
                     <p class="text-center mb-4">Do you recognize this device?</p>
 
                     <div id="buttonSection" class="d-grid gap-2">
-                        <button onclick="approve()" class="btn btn-success btn-lg">
-                            ✓ Yes, Approve This Login
+                        <button id="approveButton" onclick="approve(event)" class="btn btn-success btn-lg"
+                                th:attr="disabled=${awaitingScan} ? 'disabled' : null">
+                            Yes, Approve This Login
                         </button>
-                        <button onclick="deny()" class="btn btn-danger btn-lg">
-                            ✗ No, Deny This Login
+                        <button id="denyButton" onclick="deny(event)" class="btn btn-danger btn-lg">
+                            No, Deny This Login
                         </button>
                     </div>
 
@@ -49,17 +56,66 @@
 </div>
 
 <script th:inline="javascript">
+    let awaitingScan = /*[[${awaitingScan}]]*/ false;
     const token = /*[[${token}]]*/ '';
+    let pollHandle = null;
 
-    function approve() {
-        const btn = event.target;
+    document.addEventListener('DOMContentLoaded', () => {
+        if (awaitingScan) {
+            startPolling();
+        }
+    });
+
+    function startPolling() {
+        pollHandle = setInterval(() => {
+            fetch('/qr/status?token=' + token)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.scanned) {
+                        updateDeviceDetails(data.deviceInfo, data.ip);
+                        enableActions();
+                    }
+                })
+                .catch(err => console.error('Polling error', err));
+        }, 3000);
+    }
+
+    function enableActions() {
+        if (!awaitingScan) {
+            return;
+        }
+        awaitingScan = false;
+        if (pollHandle) {
+            clearInterval(pollHandle);
+        }
+        const notice = document.getElementById('awaitingNotice');
+        if (notice) {
+            notice.remove();
+        }
+        document.getElementById('approveButton').removeAttribute('disabled');
+    }
+
+    function updateDeviceDetails(deviceInfo, ip) {
+        if (deviceInfo) {
+            document.getElementById('deviceInfoValue').textContent = deviceInfo;
+        }
+        if (ip) {
+            document.getElementById('ipValue').textContent = ip;
+        }
+    }
+
+    function approve(ev) {
+        if (awaitingScan) {
+            return;
+        }
+        const btn = ev.target;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Approving...';
 
         fetch('/qr/approve?token=' + token, {method: 'POST'})
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('HTTP error ' + response.status);
+                    throw response;
                 }
                 return response.json();
             })
@@ -68,19 +124,26 @@
                     showResult('success', 'Login Approved!', 'The device has been granted access to your account.');
                 } else {
                     btn.disabled = false;
-                    btn.innerHTML = '✓ Yes, Approve This Login';
+                    btn.innerHTML = 'Yes, Approve This Login';
                     showResult('danger', 'Failed to approve', data.error || 'Please try again.');
                 }
             })
-            .catch(err => {
+            .catch(async err => {
                 btn.disabled = false;
-                btn.innerHTML = '✓ Yes, Approve This Login';
-                showResult('danger', 'Error: ' + err.message, 'Please try again.');
+                btn.innerHTML = 'Yes, Approve This Login';
+                let message = 'Please try again.';
+                if (err.json) {
+                    try {
+                        const data = await err.json();
+                        message = data.error || message;
+                    } catch (_) {}
+                }
+                showResult('danger', 'Error approving', message);
             });
     }
 
-    function deny() {
-        const btn = event.target;
+    function deny(ev) {
+        const btn = ev.target;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Denying...';
 
@@ -91,13 +154,13 @@
                     showResult('info', 'Login Denied', 'The device has been denied access.');
                 } else {
                     btn.disabled = false;
-                    btn.innerHTML = '✗ No, Deny This Login';
-                    showResult('danger', 'Failed to deny', 'Please try again.');
+                    btn.innerHTML = 'No, Deny This Login';
+                    showResult('danger', 'Failed to deny', data.error || 'Please try again.');
                 }
             })
             .catch(err => {
                 btn.disabled = false;
-                btn.innerHTML = '✗ No, Deny This Login';
+                btn.innerHTML = 'No, Deny This Login';
                 showResult('danger', 'Error: ' + err.message, 'Please try again.');
             });
     }
@@ -111,3 +174,5 @@
 </script>
 </body>
 </html>
+
+

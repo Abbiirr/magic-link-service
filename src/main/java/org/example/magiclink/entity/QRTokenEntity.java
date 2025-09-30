@@ -2,6 +2,7 @@ package org.example.magiclink.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,6 +31,7 @@ public class QRTokenEntity {
     private String ip;
     private LocalDateTime scannedAt;
     private String generatingSessionId;
+    private String scanningSessionId;
 
     public enum QRTokenStatus {
         PENDING,    // Waiting for approval
@@ -39,3 +41,4 @@ public class QRTokenEntity {
         EXPIRED     // Time expired
     }
 }
+
