@@ -42,6 +42,12 @@
                             </button>
                         </form>
 
+                        <div class="text-center mt-3">
+                            <a href="/qr/login/generate" class="btn btn-outline-primary">
+                                Login with QR Code
+                            </a>
+                        </div>
+
                         <!-- Error Messages -->
                         <div th:if="${param.error}" class="alert alert-danger mt-3">
                             <span th:if="${param.error[0] == 'email_mismatch'}">

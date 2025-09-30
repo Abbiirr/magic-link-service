@@ -36,18 +36,42 @@ public class QRService {
         entity.setToken(UUID.randomUUID().toString());
         entity.setUserEmail(userEmail);
         entity.setGeneratingSessionId(generatingSessionId);
+        entity.setScanningSessionId(null);
         entity.setExpiresAt(LocalDateTime.now().plusMinutes(tokenExpiryMinutes));
         entity.setStatus(QRTokenEntity.QRTokenStatus.PENDING);
+        entity.setLoginType(QRTokenEntity.QRLoginType.PHONE_TO_BROWSER);
         entity.setScannedAt(null);
-        entity.setScanningSessionId(null);
         entity.setDeviceInfo(null);
         entity.setIp(null);
 
         return qrTokenRepository.save(entity);
     }
 
+    public QRTokenEntity generateBrowserLoginToken(String deviceInfo, String ip, String scanningSessionId) {
+        QRTokenEntity entity = new QRTokenEntity();
+        entity.setToken(UUID.randomUUID().toString());
+        entity.setUserEmail(null);
+        entity.setGeneratingSessionId(null);
+        entity.setScanningSessionId(scanningSessionId);
+        entity.setDeviceInfo(deviceInfo);
+        entity.setIp(ip);
+        entity.setScannedAt(null);
+        entity.setExpiresAt(LocalDateTime.now().plusMinutes(tokenExpiryMinutes));
+        entity.setStatus(QRTokenEntity.QRTokenStatus.PENDING);
+        entity.setLoginType(QRTokenEntity.QRLoginType.BROWSER_TO_BROWSER);
+
+        return qrTokenRepository.save(entity);
+    }
+
     public String generateQRCodeImage(String token) throws Exception {
-        String qrUrl = baseUrl + "/qr/scan?token=" + token;
+        Optional<QRTokenEntity> tokenEntity = qrTokenRepository.findByToken(token);
+        String qrUrl;
+        if (tokenEntity.isPresent() &&
+                tokenEntity.get().getLoginType() == QRTokenEntity.QRLoginType.BROWSER_TO_BROWSER) {
+            qrUrl = baseUrl + "/qr/login/scan?token=" + token;
+        } else {
+            qrUrl = baseUrl + "/qr/scan?token=" + token;
+        }
 
         QRCodeWriter qrCodeWriter = new QRCodeWriter();
         BitMatrix bitMatrix = qrCodeWriter.encode(qrUrl, BarcodeFormat.QR_CODE, 300, 300);
@@ -98,6 +122,10 @@ public class QRService {
         QRTokenEntity entity = opt.get();
         if (hasExpired(entity)) {
             markExpired(entity);
+            return false;
+        }
+
+        if (entity.getLoginType() != QRTokenEntity.QRLoginType.PHONE_TO_BROWSER) {
             return false;
         }
 
@@ -156,7 +184,7 @@ public class QRService {
         entity.setStatus(QRTokenEntity.QRTokenStatus.CONSUMED);
         qrTokenRepository.save(entity);
 
-        return Optional.of(entity.getUserEmail());
+        return Optional.ofNullable(entity.getUserEmail());
     }
 
     public QRTokenEntity.QRTokenStatus getTokenStatus(String token) {
@@ -169,4 +197,5 @@ public class QRService {
         qrTokenRepository.save(token);
     }
 }
+
 

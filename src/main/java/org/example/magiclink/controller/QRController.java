@@ -96,6 +96,10 @@ public class QRController {
         }
 
         QRTokenEntity qrToken = opt.get();
+        if (qrToken.getLoginType() != QRTokenEntity.QRLoginType.PHONE_TO_BROWSER) {
+            return "redirect:/login?error=invalid_qr_type";
+        }
+
         HttpSession session = request.getSession(true);
         String currentSessionId = session.getId();
 
@@ -121,7 +125,6 @@ public class QRController {
 
         return "qr-scan";
     }
-
     @GetMapping("/approve")
     public String approveQR(
             @RequestParam("token") String token,
@@ -138,6 +141,10 @@ public class QRController {
         }
 
         QRTokenEntity qrToken = opt.get();
+        if (qrToken.getLoginType() != QRTokenEntity.QRLoginType.PHONE_TO_BROWSER) {
+            return "redirect:/?error=invalid_qr_type";
+        }
+
         String email = extractEmail(principal);
         if (!qrToken.getUserEmail().equalsIgnoreCase(email)) {
             return "redirect:/?error=unauthorized";
@@ -227,6 +234,12 @@ public class QRController {
         }
 
         QRTokenEntity qrToken = opt.get();
+        if (qrToken.getLoginType() != QRTokenEntity.QRLoginType.PHONE_TO_BROWSER) {
+            response.put("success", false);
+            response.put("error", "Invalid QR type");
+            return ResponseEntity.badRequest().body(response);
+        }
+
         String email = extractEmail(principal);
         if (!qrToken.getUserEmail().equalsIgnoreCase(email)) {
             response.put("success", false);

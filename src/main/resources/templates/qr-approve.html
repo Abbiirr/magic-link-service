@@ -35,12 +35,14 @@
 
                     <p class="text-center mb-4">Do you recognize this device?</p>
 
+                    <div id="feedback" class="mb-3" style="display: none;"></div>
+
                     <div id="buttonSection" class="d-grid gap-2">
-                        <button id="approveButton" onclick="approve(event)" class="btn btn-success btn-lg"
+                        <button id="approveButton" type="button" onclick="approve(event)" class="btn btn-success btn-lg"
                                 th:attr="disabled=${awaitingScan} ? 'disabled' : null">
                             Yes, Approve This Login
                         </button>
-                        <button id="denyButton" onclick="deny(event)" class="btn btn-danger btn-lg">
+                        <button id="denyButton" type="button" onclick="deny(event)" class="btn btn-danger btn-lg">
                             No, Deny This Login
                         </button>
                     </div>
@@ -59,60 +61,142 @@
     let awaitingScan = /*[[${awaitingScan}]]*/ false;
     const token = /*[[${token}]]*/ '';
     let pollHandle = null;
+    let actionsEnabled = !awaitingScan;
+    let resultShown = false;
 
     document.addEventListener('DOMContentLoaded', () => {
-        if (awaitingScan) {
-            startPolling();
+        if (actionsEnabled) {
+            removeAwaitingNotice();
         }
+        startPolling();
     });
 
     function startPolling() {
-        pollHandle = setInterval(() => {
-            fetch('/qr/status?token=' + token)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.scanned) {
-                        updateDeviceDetails(data.deviceInfo, data.ip);
-                        enableActions();
-                    }
-                })
-                .catch(err => console.error('Polling error', err));
-        }, 3000);
-    }
-
-    function enableActions() {
-        if (!awaitingScan) {
+        if (pollHandle) {
             return;
         }
-        awaitingScan = false;
+        pollHandle = setInterval(checkStatus, 3000);
+        checkStatus();
+    }
+
+    function stopPolling() {
         if (pollHandle) {
             clearInterval(pollHandle);
+            pollHandle = null;
         }
+    }
+
+    function checkStatus() {
+        fetch('/qr/status?token=' + encodeURIComponent(token), {credentials: 'same-origin'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.deviceInfo || data.ip) {
+                    updateDeviceDetails(data.deviceInfo, data.ip);
+                }
+                if (data.scanned && !actionsEnabled) {
+                    enableActions();
+                }
+                handleStatusUpdate(data.status);
+            })
+            .catch(err => console.error('Polling error', err));
+    }
+
+    function handleStatusUpdate(status) {
+        if (!status || resultShown) {
+            return;
+        }
+        if (status === 'DENIED') {
+            showResult('danger', 'Login Denied', 'The login request was denied.');
+        } else if (status === 'EXPIRED') {
+            showResult('warning', 'QR Code Expired', 'Please generate a new QR code.');
+        } else if (status === 'APPROVED' || status === 'CONSUMED') {
+            showResult('success', 'Login Approved!', 'The device has been granted access to your account.');
+        }
+    }
+
+    function removeAwaitingNotice() {
         const notice = document.getElementById('awaitingNotice');
         if (notice) {
             notice.remove();
         }
-        document.getElementById('approveButton').removeAttribute('disabled');
+    }
+
+    function enableActions() {
+        if (actionsEnabled) {
+            return;
+        }
+        actionsEnabled = true;
+        awaitingScan = false;
+        removeAwaitingNotice();
+        const approveButton = document.getElementById('approveButton');
+        if (approveButton) {
+            approveButton.removeAttribute('disabled');
+        }
     }
 
     function updateDeviceDetails(deviceInfo, ip) {
-        if (deviceInfo) {
-            document.getElementById('deviceInfoValue').textContent = deviceInfo;
+        const deviceElem = document.getElementById('deviceInfoValue');
+        const ipElem = document.getElementById('ipValue');
+        if (deviceElem && deviceInfo) {
+            deviceElem.textContent = deviceInfo;
         }
-        if (ip) {
-            document.getElementById('ipValue').textContent = ip;
+        if (ipElem && ip) {
+            ipElem.textContent = ip;
         }
     }
 
+    function setLoading(button, label) {
+        if (!button) {
+            return;
+        }
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.innerHTML;
+        }
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + label;
+    }
+
+    function resetButton(button) {
+        if (!button) {
+            return;
+        }
+        const original = button.dataset.originalLabel;
+        if (original) {
+            button.innerHTML = original;
+        }
+        button.disabled = false;
+    }
+
+    function clearFeedback() {
+        const feedback = document.getElementById('feedback');
+        if (feedback) {
+            feedback.style.display = 'none';
+            feedback.innerHTML = '';
+        }
+    }
+
+    function showFeedback(type, title, message) {
+        const feedback = document.getElementById('feedback');
+        if (!feedback) {
+            return;
+        }
+        feedback.style.display = 'block';
+        feedback.innerHTML =
+            '<div class="alert alert-' + type + ' mb-0"><strong>' + title + '</strong> ' + message + '</div>';
+    }
+
     function approve(ev) {
-        if (awaitingScan) {
+        if (!actionsEnabled || resultShown) {
             return;
         }
         const btn = ev.target;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Approving...';
+        clearFeedback();
+        setLoading(btn, 'Approving...');
 
-        fetch('/qr/approve?token=' + token, {method: 'POST'})
+        fetch('/qr/approve?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            credentials: 'same-origin'
+        })
             .then(response => {
                 if (!response.ok) {
                     throw response;
@@ -123,56 +207,80 @@
                 if (data.success) {
                     showResult('success', 'Login Approved!', 'The device has been granted access to your account.');
                 } else {
-                    btn.disabled = false;
-                    btn.innerHTML = 'Yes, Approve This Login';
-                    showResult('danger', 'Failed to approve', data.error || 'Please try again.');
+                    showFeedback('danger', 'Failed to approve', data.error || 'Please try again.');
                 }
             })
             .catch(async err => {
-                btn.disabled = false;
-                btn.innerHTML = 'Yes, Approve This Login';
                 let message = 'Please try again.';
-                if (err.json) {
+                if (err && typeof err.json === 'function') {
                     try {
                         const data = await err.json();
                         message = data.error || message;
-                    } catch (_) {}
+                    } catch (_) {
+                        // ignore parse error
+                    }
                 }
-                showResult('danger', 'Error approving', message);
+                showFeedback('danger', 'Error approving', message);
+            })
+            .finally(() => {
+                if (!resultShown) {
+                    resetButton(btn);
+                }
             });
     }
 
     function deny(ev) {
+        if (resultShown) {
+            return;
+        }
         const btn = ev.target;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Denying...';
+        clearFeedback();
+        setLoading(btn, 'Denying...');
 
-        fetch('/qr/deny?token=' + token, {method: 'POST'})
+        fetch('/qr/deny?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            credentials: 'same-origin'
+        })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showResult('info', 'Login Denied', 'The device has been denied access.');
                 } else {
-                    btn.disabled = false;
-                    btn.innerHTML = 'No, Deny This Login';
-                    showResult('danger', 'Failed to deny', data.error || 'Please try again.');
+                    showFeedback('danger', 'Failed to deny', data.error || 'Please try again.');
                 }
             })
             .catch(err => {
-                btn.disabled = false;
-                btn.innerHTML = 'No, Deny This Login';
-                showResult('danger', 'Error: ' + err.message, 'Please try again.');
+                showFeedback('danger', 'Error denying', err && err.message ? err.message : 'Please try again.');
+            })
+            .finally(() => {
+                if (!resultShown) {
+                    resetButton(btn);
+                }
             });
     }
 
     function showResult(type, title, message) {
-        document.getElementById('buttonSection').style.display = 'none';
-        document.getElementById('resultSection').style.display = 'block';
-        document.getElementById('resultMessage').innerHTML =
-            `<div class="alert alert-${type}"><strong>${title}</strong><p class="mb-0">${message}</p></div>`;
+        if (resultShown) {
+            return;
+        }
+        resultShown = true;
+        stopPolling();
+        clearFeedback();
+
+        const buttonSection = document.getElementById('buttonSection');
+        if (buttonSection) {
+            buttonSection.style.display = 'none';
+        }
+        const resultSection = document.getElementById('resultSection');
+        if (resultSection) {
+            resultSection.style.display = 'block';
+        }
+        const resultMessage = document.getElementById('resultMessage');
+        if (resultMessage) {
+            resultMessage.innerHTML =
+                '<div class="alert alert-' + type + '"><strong>' + title + '</strong><p class="mb-0">' + message + '</p></div>';
+        }
     }
 </script>
 </body>
 </html>
-
-

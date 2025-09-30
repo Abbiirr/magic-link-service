@@ -17,7 +17,7 @@ public class QRTokenEntity {
     @Column(unique = true, nullable = false)
     private String token;
 
-    @Column(nullable = false)
+    @Column
     private String userEmail;
 
     @Column(nullable = false)
@@ -27,11 +27,15 @@ public class QRTokenEntity {
     @Column(nullable = false)
     private QRTokenStatus status = QRTokenStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private QRLoginType loginType = QRLoginType.PHONE_TO_BROWSER;
+
     private String deviceInfo;
     private String ip;
     private LocalDateTime scannedAt;
     private String generatingSessionId;
-    private String scanningSessionId;
+    private String scanningSessionId; // Session that should be authenticated
 
     public enum QRTokenStatus {
         PENDING,    // Waiting for approval
@@ -40,5 +44,9 @@ public class QRTokenEntity {
         CONSUMED,   // Already used
         EXPIRED     // Time expired
     }
-}
 
+    public enum QRLoginType {
+        PHONE_TO_BROWSER,  // Original: PC generates, phone scans to login on phone
+        BROWSER_TO_BROWSER // Browser generates, phone scans to login on browser
+    }
+}
