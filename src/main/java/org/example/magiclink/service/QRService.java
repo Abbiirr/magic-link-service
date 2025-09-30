@@ -30,12 +30,13 @@ public class QRService {
     @Value("${app.magic-link.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    public QRTokenEntity generateQRToken(String userEmail, String deviceInfo, String ip) {
+    public QRTokenEntity generateQRToken(String userEmail, String deviceInfo, String ip, String sessionId) {
         String token = UUID.randomUUID().toString();
 
         QRTokenEntity entity = new QRTokenEntity();
         entity.setToken(token);
         entity.setUserEmail(userEmail);
+        entity.setGeneratingSessionId(sessionId);
         entity.setExpiresAt(LocalDateTime.now().plusMinutes(tokenExpiryMinutes));
         entity.setStatus(QRTokenEntity.QRTokenStatus.PENDING);
         entity.setDeviceInfo(deviceInfo);
@@ -74,17 +75,25 @@ public class QRService {
     }
 
     public boolean approveToken(String token) {
+        System.out.println("[approveToken] Starting for token: " + token);
         Optional<QRTokenEntity> opt = validateToken(token);
-        if (opt.isEmpty()) return false;
+        if (opt.isEmpty()) {
+            System.out.println("[approveToken] Token validation failed");
+            return false;
+        }
 
         QRTokenEntity entity = opt.get();
+        System.out.println("[approveToken] Current status: " + entity.getStatus());
+
         if (entity.getStatus() != QRTokenEntity.QRTokenStatus.PENDING) {
+            System.out.println("[approveToken] ERROR: Token not in PENDING state!");
             return false;
         }
 
         entity.setStatus(QRTokenEntity.QRTokenStatus.APPROVED);
         qrTokenRepository.save(entity);
         log.info("QR token approved: {}", token);
+        System.out.println("[approveToken] Successfully approved");
         return true;
     }
 
@@ -116,8 +125,8 @@ public class QRService {
 
     public QRTokenEntity.QRTokenStatus getTokenStatus(String token) {
         return qrTokenRepository.findByToken(token)
-            .map(QRTokenEntity::getStatus)
-            .orElse(QRTokenEntity.QRTokenStatus.EXPIRED);
+                .map(QRTokenEntity::getStatus)
+                .orElse(QRTokenEntity.QRTokenStatus.EXPIRED);
     }
 
     public void saveToken(QRTokenEntity token) {
@@ -126,7 +135,7 @@ public class QRService {
 
     public boolean wasScanned(String token) {
         return qrTokenRepository.findByToken(token)
-            .map(e -> e.getScannedAt() != null)
-            .orElse(false);
+                .map(e -> e.getScannedAt() != null)
+                .orElse(false);
     }
 }

@@ -29,6 +29,7 @@ public class QRTokenEntity {
     private String deviceInfo;
     private String ip;
     private LocalDateTime scannedAt;
+    private String generatingSessionId;
 
     public enum QRTokenStatus {
         PENDING,    // Waiting for approval

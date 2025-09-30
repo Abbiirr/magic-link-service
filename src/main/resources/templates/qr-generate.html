@@ -21,23 +21,19 @@
                         <ol class="text-start mb-0">
                             <li>Open your new device's camera or QR scanner</li>
                             <li>Scan this QR code</li>
-                            <li>Approve the login request on this device</li>
+                            <li>When prompted on the new device, click the button below to approve</li>
                         </ol>
+                    </div>
+
+                    <div class="d-grid gap-2 mb-3">
+                        <a th:href="@{/qr/approve(token=${token})}" class="btn btn-primary btn-lg">
+                            Approve Login Request
+                        </a>
                     </div>
 
                     <p class="text-muted small">
                         This QR code expires at <strong th:text="${#temporals.format(expiresAt, 'HH:mm:ss')}"></strong>
                     </p>
-
-                    <div id="approvalSection" style="display: none;" class="mt-4">
-                        <div class="alert alert-warning">
-                            <strong>Login Request Detected!</strong>
-                            <p class="mb-2">A device is trying to login. Do you recognize this request?</p>
-                            <div id="deviceInfo"></div>
-                        </div>
-                        <a th:href="@{/qr/approve(token=${token})}" class="btn btn-success me-2">Approve</a>
-                        <button onclick="denyLogin()" class="btn btn-danger">Deny</button>
-                    </div>
 
                     <div class="mt-3">
                         <a href="/" class="btn btn-secondary">Back to Home</a>
@@ -47,62 +43,5 @@
         </div>
     </div>
 </div>
-
-<script th:inline="javascript">
-    const token = /*[[${token}]]*/ '';
-    let pollInterval;
-    let approvalPromptShown = false;
-
-    function checkForScanAttempt() {
-        fetch('/qr/status?token=' + token)
-            .then(response => response.json())
-            .then(data => {
-                console.log('[QR Generate] Poll response:', data);
-
-                // Show approval section if someone scanned but hasn't been approved/denied yet
-                if (data.scanned && data.status === 'PENDING' && !approvalPromptShown) {
-                    console.log('[QR Generate] SCAN DETECTED! Showing approval section');
-                    document.getElementById('approvalSection').style.display = 'block';
-                    approvalPromptShown = true;
-                } else if (data.status === 'APPROVED' || data.status === 'CONSUMED') {
-                    console.log('[QR Generate] Status APPROVED/CONSUMED');
-                    clearInterval(pollInterval);
-                    showSuccess();
-                } else if (data.status === 'DENIED') {
-                    console.log('[QR Generate] Status DENIED');
-                    clearInterval(pollInterval);
-                    showDenied();
-                } else {
-                    console.log('[QR Generate] Still waiting. Scanned:', data.scanned, 'Status:', data.status);
-                }
-            })
-            .catch(err => console.error('[QR Generate] Poll error:', err));
-    }
-
-    function showSuccess() {
-        document.getElementById('approvalSection').innerHTML =
-            '<div class="alert alert-success">Login approved successfully!</div>';
-        document.getElementById('approvalSection').style.display = 'block';
-    }
-
-    function showDenied() {
-        document.getElementById('approvalSection').innerHTML =
-            '<div class="alert alert-danger">Login was denied.</div>';
-        document.getElementById('approvalSection').style.display = 'block';
-    }
-
-    function denyLogin() {
-        fetch('/qr/deny?token=' + token, { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showDenied();
-                }
-            });
-    }
-
-    pollInterval = setInterval(checkForScanAttempt, 2000);
-    setTimeout(() => clearInterval(pollInterval), 300000);
-</script>
 </body>
 </html>
