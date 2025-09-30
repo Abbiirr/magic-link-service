@@ -51,7 +51,7 @@ spring:
               - openid
               - email
               - profile
-            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+            redirect-uri: "https://singularly-holy-aphid.ngrok-free.app/login/oauth2/code/google"
         provider:
           google:
             issuer-uri: https://accounts.google.com
