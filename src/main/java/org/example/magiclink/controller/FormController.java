@@ -25,6 +25,9 @@ public class FormController {
     private final FormService formService;
     private final MagicLinkService magicLinkService;
 
+    @Value("${app.magic-link.frontend-redirect-url:http://localhost:3000/form}")
+    private String frontendRedirectUrl;
+
     /**
      * API 1: Generate magic link with OAuth token (no auth, no params)
      * Returns JSON response with the magic link
@@ -47,23 +50,47 @@ public class FormController {
     }
 
     /**
-     * Handle magic link click - verify token and show form directly
+     * Handle magic link click - redirects to frontend with OAuth token
      */
     @GetMapping("/verify")
-    public String verifyMagicLink(@RequestParam String token, HttpSession session, Model model) {
+    public String verifyMagicLink(@RequestParam String token) {
         log.info("Form magic link clicked with token: {}", token);
 
         // Validate the OAuth token
         if (!magicLinkService.validateToken(token)) {
             log.warn("Invalid or expired token: {}", token);
-            return "redirect:/form/generate-link?error=invalid_token";
+            return "redirect:" + frontendRedirectUrl + "?error=invalid_token";
         }
 
-        // Store token in session for later use
-        session.setAttribute("form_token", token);
+        // Redirect to frontend with the OAuth token
+        String redirectUrl = frontendRedirectUrl + "?token=" + token;
+        log.info("Redirecting to frontend: {}", redirectUrl);
 
-        // Redirect to OAuth2 authorization with Revo to get user info
-        return "redirect:/oauth2/authorization/revo";
+        return "redirect:" + redirectUrl;
+    }
+
+    /**
+     * API to validate token (called from frontend)
+     * Returns token validity status
+     */
+    @GetMapping("/validate-token")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> validateToken(@RequestParam String token) {
+        log.info("Validating token from frontend: {}", token);
+
+        Map<String, Object> response = new HashMap<>();
+        boolean isValid = magicLinkService.validateToken(token);
+
+        response.put("valid", isValid);
+        response.put("token", token);
+
+        if (isValid) {
+            log.info("Token is valid: {}", token);
+        } else {
+            log.warn("Token is invalid or expired: {}", token);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     /**
