@@ -27,18 +27,23 @@ public class FormController {
 
     /**
      * API 1: Generate magic link with OAuth token (no auth, no params)
+     * Returns JSON response with the magic link
      */
     @GetMapping("/generate-link")
-    public String generateMagicLink(Model model) {
+    @ResponseBody
+    public ResponseEntity<Map<String, String>> generateMagicLink() {
         log.info("Generating magic link for form registration");
 
         // Generate magic link with OAuth token
         MagicLinkService.MagicLinkResponse response = magicLinkService.generateMagicLink("/form/verify");
 
-        model.addAttribute("magicLink", response.getMagicLink());
-        model.addAttribute("token", response.getToken());
+        Map<String, String> result = new HashMap<>();
+        result.put("magicLink", response.getMagicLink());
+        result.put("token", response.getToken());
 
-        return "form-link-generated";
+        log.info("Generated magic link: {}", response.getMagicLink());
+
+        return ResponseEntity.ok(result);
     }
 
     /**
