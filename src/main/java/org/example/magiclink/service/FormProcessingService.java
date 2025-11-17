@@ -143,4 +143,129 @@ public class FormProcessingService {
             .map(status -> status.getStatus() == FormProcessingStatus.ProcessingStatus.COMPLETED)
             .orElse(false);
     }
+
+    /**
+     * Get or create processing status
+     */
+    public FormProcessingStatus getOrCreateStatus(String token, String email) {
+        return processingRepository.findByToken(token)
+            .orElseGet(() -> createProcessingStatus(token, email));
+    }
+
+    /**
+     * Submit a page and determine next page
+     */
+    @Transactional
+    public String submitPage(String token, Integer pageNumber, Map<String, String> pageData) {
+        log.info("Submitting page {} for token {}", pageNumber, token);
+
+        Optional<FormProcessingStatus> statusOpt = processingRepository.findByToken(token);
+        if (statusOpt.isEmpty()) {
+            log.error("Processing status not found for token: {}", token);
+            return "error";
+        }
+
+        FormProcessingStatus status = statusOpt.get();
+
+        // Handle different page submissions
+        if (pageNumber == 0) {
+            // Welcome page - move to form
+            status.setCurrentPage(1);
+            processingRepository.save(status);
+            return "form"; // Go to page 1
+        } else if (pageNumber == 1) {
+            // Form page - save data and move to loading
+            status.getFormData().putAll(pageData);
+            status.setCurrentPage(2);
+            processingRepository.save(status);
+
+            // Start background processing
+            processFormDataWithMfaDecision(token, pageData);
+
+            return "loading"; // Go to page 2
+        } else if (pageNumber == 3) {
+            // MFA page - verify code
+            String submittedCode = pageData.get("mfaCode");
+            if (submittedCode != null && submittedCode.equals(status.getMfaCode())) {
+                status.setCurrentPage(4);
+                status.setNextPageType("success");
+                processingRepository.save(status);
+                return "success"; // Go to page 4
+            } else {
+                status.setCurrentPage(5);
+                status.setNextPageType("error");
+                status.setErrorMessage("Invalid verification code");
+                processingRepository.save(status);
+                return "error"; // Go to page 5
+            }
+        }
+
+        return "error";
+    }
+
+    /**
+     * Process form data and randomly decide if MFA is required
+     */
+    @Async
+    @Transactional
+    public void processFormDataWithMfaDecision(String token, Map<String, String> formData) {
+        log.info("Starting background processing with MFA decision for token: {}", token);
+
+        Optional<FormProcessingStatus> statusOpt = processingRepository.findByToken(token);
+        if (statusOpt.isEmpty()) {
+            log.error("Processing status not found for token: {}", token);
+            return;
+        }
+
+        FormProcessingStatus status = statusOpt.get();
+        status.setStatus(FormProcessingStatus.ProcessingStatus.PROCESSING);
+        status.setProgress(10);
+        processingRepository.save(status);
+
+        try {
+            // Step 1: Validate form data
+            log.info("Step 1: Validating form data for {}", status.getEmail());
+            Thread.sleep(1000);
+            status.setProgress(30);
+            processingRepository.save(status);
+
+            // Step 2: Update user profile
+            log.info("Step 2: Updating user profile for {}", status.getEmail());
+            updateUserProfile(status.getEmail(), formData);
+            Thread.sleep(1000);
+            status.setProgress(60);
+            processingRepository.save(status);
+
+            // Step 3: Decide if MFA is required (50% chance for demo)
+            boolean requireMfa = Math.random() < 0.5;
+            log.info("Step 3: MFA required decision: {}", requireMfa);
+            status.setMfaRequired(requireMfa);
+
+            if (requireMfa) {
+                // Generate a random 6-digit code
+                String mfaCode = String.format("%06d", (int) (Math.random() * 1000000));
+                status.setMfaCode(mfaCode);
+                status.setNextPageType("mfa");
+                log.info("Generated MFA code: {} for {}", mfaCode, status.getEmail());
+            } else {
+                status.setNextPageType("success");
+            }
+
+            Thread.sleep(1000);
+            status.setProgress(100);
+            status.setStatus(FormProcessingStatus.ProcessingStatus.COMPLETED);
+            status.setCompletedAt(LocalDateTime.now());
+            processingRepository.save(status);
+
+            log.info("Successfully completed processing for token: {}", token);
+
+        } catch (Exception e) {
+            log.error("Error processing form data for token: {}", token, e);
+            status.setStatus(FormProcessingStatus.ProcessingStatus.FAILED);
+            status.setErrorMessage(e.getMessage());
+            status.setNextPageType("error");
+            status.setCompletedAt(LocalDateTime.now());
+            processingRepository.save(status);
+        }
+    }
 }

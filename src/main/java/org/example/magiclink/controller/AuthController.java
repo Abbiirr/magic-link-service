@@ -92,11 +92,11 @@ public class AuthController {
         model.addAttribute("email", expectedEmail);
         model.addAttribute("token", token);
 
-        // Create processing status entry
-        formProcessingService.createProcessingStatus(token, expectedEmail);
+        // Get or create processing status entry
+        formProcessingService.getOrCreateStatus(token, expectedEmail);
 
-        // Redirect to multi-step form instead of OAuth verify
-        return "magic-link-form";
+        // Redirect to multi-page form
+        return "magic-link-multipage";
     }
 
     @GetMapping("/login/ott/verify-manual")
