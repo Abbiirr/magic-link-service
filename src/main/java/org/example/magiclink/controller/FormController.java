@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.magiclink.entity.FormSubmissionEntity;
 import org.example.magiclink.service.FormService;
+import org.example.magiclink.service.MagicLinkService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -22,40 +23,41 @@ import java.util.UUID;
 public class FormController {
 
     private final FormService formService;
-
-    @Value("${app.magic-link.base-url}")
-    private String baseUrl;
+    private final MagicLinkService magicLinkService;
 
     /**
-     * API 1: Generate magic link (no auth, no params)
+     * API 1: Generate magic link with OAuth token (no auth, no params)
      */
     @GetMapping("/generate-link")
     public String generateMagicLink(Model model) {
-        // Generate a unique token for this registration flow
-        String token = UUID.randomUUID().toString();
+        log.info("Generating magic link for form registration");
 
-        // Create the magic link URL
-        String magicLink = baseUrl + "/form/verify?token=" + token;
+        // Generate magic link with OAuth token
+        MagicLinkService.MagicLinkResponse response = magicLinkService.generateMagicLink("/form/verify");
 
-        log.info("Generated form magic link with token: {}", token);
-
-        model.addAttribute("magicLink", magicLink);
-        model.addAttribute("token", token);
+        model.addAttribute("magicLink", response.getMagicLink());
+        model.addAttribute("token", response.getToken());
 
         return "form-link-generated";
     }
 
     /**
-     * Handle magic link click - initiates OAuth flow
+     * Handle magic link click - verify token and show form directly
      */
     @GetMapping("/verify")
-    public String verifyMagicLink(@RequestParam String token, HttpSession session) {
+    public String verifyMagicLink(@RequestParam String token, HttpSession session, Model model) {
         log.info("Form magic link clicked with token: {}", token);
+
+        // Validate the OAuth token
+        if (!magicLinkService.validateToken(token)) {
+            log.warn("Invalid or expired token: {}", token);
+            return "redirect:/form/generate-link?error=invalid_token";
+        }
 
         // Store token in session for later use
         session.setAttribute("form_token", token);
 
-        // Redirect to OAuth2 authorization with Google
+        // Redirect to OAuth2 authorization with Google to get user info
         return "redirect:/oauth2/authorization/google";
     }
 
@@ -72,7 +74,14 @@ public class FormController {
             return "redirect:/form/generate-link";
         }
 
+        // Validate token is still valid
+        if (!magicLinkService.validateToken(formToken)) {
+            log.warn("Token expired during registration flow");
+            return "redirect:/form/generate-link?error=token_expired";
+        }
+
         model.addAttribute("email", oauthEmail);
+        model.addAttribute("token", formToken);
         log.info("Showing form registration page for email: {}", oauthEmail);
 
         return "form-register";
@@ -91,17 +100,16 @@ public class FormController {
 
         log.info("Form submission received - name: {}, email: {}", name, email);
 
-        // Here you would typically:
-        // 1. Validate the data
-        // 2. Create/update user in database
-        // 3. Store password securely (hashed)
-        // 4. Link with OAuth data from session
-
         String oauthEmail = (String) session.getAttribute("form_oauth_email");
         String googleId = (String) session.getAttribute("form_oauth_google_id");
         String formToken = (String) session.getAttribute("form_token");
 
         log.info("OAuth email: {}, Google ID: {}, Token: {}", oauthEmail, googleId, formToken);
+
+        // Consume the token (one-time use)
+        if (formToken != null) {
+            magicLinkService.consumeToken(formToken);
+        }
 
         // Clean up session
         session.removeAttribute("form_token");
