@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,5 +59,21 @@ public class TokenService {
         e.setUsed(true);
         tokenRepository.save(e);
         return Optional.of(e.getUsername());
+    }
+
+    /**
+     * Get the number of seconds remaining until the token expires
+     * Returns null if token is invalid or expired
+     */
+    public Long getTokenExpiresIn(String token) {
+        Optional<OneTimeTokenEntity> opt = tokenRepository.findByToken(token);
+        if (opt.isEmpty()) return null;
+        OneTimeTokenEntity e = opt.get();
+        if (e.isUsed()) return null;
+        if (e.getExpiresAt() == null || e.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return null;
+        }
+        Duration duration = Duration.between(LocalDateTime.now(), e.getExpiresAt());
+        return duration.getSeconds();
     }
 }

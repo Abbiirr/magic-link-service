@@ -32,6 +32,7 @@ public class SecurityConfig {
                     "/",
                     "/login/**",
                     "/magic-link/**",
+                    "/api/magic-link/**",
                     "/css/**",
                     "/js/**",
                     "/check-email",
