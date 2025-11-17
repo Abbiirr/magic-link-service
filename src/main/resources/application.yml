@@ -86,6 +86,16 @@ springdoc:
       realm: revo
       client-id: revo-playwright-service-account-client
       client-secret: pVFISliG6vHD6B8S2wSiMAZ6IAbClTRr
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  show-actuator: false
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
 
 app:
   magic-link:
@@ -99,18 +109,6 @@ app.redis:
   enabled: false
 
 # SpringDoc OpenAPI Configuration
-springdoc:
-  api-docs:
-    enabled: true
-    path: /v3/api-docs
-  swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
-    tags-sorter: alpha
-    operations-sorter: alpha
-  show-actuator: false
-  default-produces-media-type: application/json
-  default-consumes-media-type: application/json
 
 # Notes:
 # - When running locally the app will use the in-memory H2 DB and in-memory cache.
