@@ -23,6 +23,9 @@ public class OAuthTokenService {
     @Value("${REVO_CLIENT_SECRET:pVFISliG6vHD6B8S2wSiMAZ6IAbClTRr}")
     private String clientSecret;
 
+    @Value("${spring.security.oauth2.client.provider.revo.token-uri:http://localhost:8081/realms/revo/protocol/openid-connect/token}")
+    private String tokenUri;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     // Store tokens with their metadata
@@ -33,25 +36,50 @@ public class OAuthTokenService {
      */
     public String generateOAuthToken() {
         try {
-            log.info("Generating OAuth token using client credentials");
+            log.info("Generating OAuth token using client credentials flow");
 
-            // Create a custom token that can be validated later
-            // This token will be used to identify the registration flow
-            // Can be extended to use actual OAuth client credentials flow with Revo
+            // Prepare request headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-            String token = java.util.UUID.randomUUID().toString();
+            // Prepare request body with client credentials
+            MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+            requestBody.add("grant_type", "client_credentials");
+            requestBody.add("client_id", clientId);
+            requestBody.add("client_secret", clientSecret);
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            // Make POST request to token endpoint
+            log.info("Requesting OAuth token from: {}", tokenUri);
+            ResponseEntity<Map> response = restTemplate.exchange(
+                tokenUri,
+                HttpMethod.POST,
+                requestEntity,
+                Map.class
+            );
+
+            // Extract access token from response
+            Map<String, Object> responseBody = response.getBody();
+            if (responseBody == null || !responseBody.containsKey("access_token")) {
+                log.error("No access_token in OAuth response");
+                throw new RuntimeException("Failed to obtain access token from OAuth provider");
+            }
+
+            String accessToken = (String) responseBody.get("access_token");
+            Integer expiresIn = (Integer) responseBody.get("expires_in");
 
             // Store token info
             TokenInfo tokenInfo = new TokenInfo();
-            tokenInfo.setToken(token);
+            tokenInfo.setToken(accessToken);
             tokenInfo.setClientId(clientId);
             tokenInfo.setCreatedAt(System.currentTimeMillis());
-            tokenInfo.setExpiresIn(3600000); // 1 hour
+            tokenInfo.setExpiresIn(expiresIn != null ? expiresIn * 1000L : 3600000L); // Convert to milliseconds
 
-            tokenStore.put(token, tokenInfo);
+            tokenStore.put(accessToken, tokenInfo);
 
-            log.info("Generated token: {}", token);
-            return token;
+            log.info("Successfully generated OAuth token with expiry: {} seconds", expiresIn);
+            return accessToken;
 
         } catch (Exception e) {
             log.error("Error generating OAuth token", e);
