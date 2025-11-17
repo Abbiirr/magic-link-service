@@ -17,10 +17,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class OAuthTokenService {
 
-    @Value("${GOOGLE_CLIENT_ID:83857630873-3um7tnfj5jmpjdk3uuvrfugg8j9d59ph.apps.googleusercontent.com}")
+    @Value("${REVO_CLIENT_ID:revo-playwright-service-account-client}")
     private String clientId;
 
-    @Value("${GOOGLE_CLIENT_SECRET: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}")
+    @Value("${REVO_CLIENT_SECRET:pVFISliG6vHD6B8S2wSiMAZ6IAbClTRr}")
     private String clientSecret;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -35,9 +35,9 @@ public class OAuthTokenService {
         try {
             log.info("Generating OAuth token using client credentials");
 
-            // Google doesn't support client credentials grant for their standard OAuth
-            // So we'll create a custom token that can be validated later
+            // Create a custom token that can be validated later
             // This token will be used to identify the registration flow
+            // Can be extended to use actual OAuth client credentials flow with Revo
 
             String token = java.util.UUID.randomUUID().toString();
 

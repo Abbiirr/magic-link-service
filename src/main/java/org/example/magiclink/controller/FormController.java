@@ -57,8 +57,8 @@ public class FormController {
         // Store token in session for later use
         session.setAttribute("form_token", token);
 
-        // Redirect to OAuth2 authorization with Google to get user info
-        return "redirect:/oauth2/authorization/google";
+        // Redirect to OAuth2 authorization with Revo to get user info
+        return "redirect:/oauth2/authorization/revo";
     }
 
     /**
@@ -101,10 +101,10 @@ public class FormController {
         log.info("Form submission received - name: {}, email: {}", name, email);
 
         String oauthEmail = (String) session.getAttribute("form_oauth_email");
-        String googleId = (String) session.getAttribute("form_oauth_google_id");
+        String userId = (String) session.getAttribute("form_oauth_user_id");
         String formToken = (String) session.getAttribute("form_token");
 
-        log.info("OAuth email: {}, Google ID: {}, Token: {}", oauthEmail, googleId, formToken);
+        log.info("OAuth email: {}, User ID: {}, Token: {}", oauthEmail, userId, formToken);
 
         // Consume the token (one-time use)
         if (formToken != null) {
@@ -114,7 +114,7 @@ public class FormController {
         // Clean up session
         session.removeAttribute("form_token");
         session.removeAttribute("form_oauth_email");
-        session.removeAttribute("form_oauth_google_id");
+        session.removeAttribute("form_oauth_user_id");
 
         // Show loading page (as requested - keep loading)
         model.addAttribute("name", name);
