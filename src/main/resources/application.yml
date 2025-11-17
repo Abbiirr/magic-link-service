@@ -98,6 +98,20 @@ app:
 app.redis:
   enabled: false
 
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  show-actuator: false
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
+
 # Notes:
 # - When running locally the app will use the in-memory H2 DB and in-memory cache.
 # - Supply mail credentials via environment variables or .env if using docker-compose.

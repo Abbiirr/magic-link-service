@@ -1,10 +1,12 @@
 package org.example.magiclink.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.magiclink.entity.FormSubmissionEntity;
-import org.example.magiclink.service.FormService;
+
 import org.example.magiclink.service.MagicLinkService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +22,9 @@ import java.util.UUID;
 @RequestMapping("/form")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Form Registration", description = "Magic link with OAuth registration flow endpoints")
 public class FormController {
 
-    private final FormService formService;
     private final MagicLinkService magicLinkService;
 
     @Value("${app.magic-link.frontend-redirect-url:http://localhost:3000/form}")
@@ -32,6 +34,10 @@ public class FormController {
      * API 1: Generate magic link with OAuth token (no auth, no params)
      * Returns JSON response with the magic link
      */
+    @Operation(
+        summary = "Generate magic link for form registration",
+        description = "Generates a magic link with OAuth token for form-based registration flow"
+    )
     @GetMapping("/generate-link")
     @ResponseBody
     public ResponseEntity<Map<String, String>> generateMagicLink() {
@@ -52,6 +58,10 @@ public class FormController {
     /**
      * Handle magic link click - redirects to frontend with OAuth token
      */
+    @Operation(
+        summary = "Verify magic link token",
+        description = "Validates the magic link token and redirects to OAuth2 authorization"
+    )
     @GetMapping("/verify")
     public String verifyMagicLink(@RequestParam String token) {
         log.info("Form magic link clicked with token: {}", token);
@@ -96,6 +106,10 @@ public class FormController {
     /**
      * Page 2: Registration form page (after OAuth)
      */
+    @Operation(
+        summary = "Show registration form",
+        description = "Displays the registration form after successful OAuth authentication"
+    )
     @GetMapping("/register")
     public String showRegistrationForm(HttpSession session, Model model) {
         String oauthEmail = (String) session.getAttribute("form_oauth_email");
@@ -122,11 +136,15 @@ public class FormController {
     /**
      * API 2: Submit registration data - shows loading page
      */
+    @Operation(
+        summary = "Submit registration form",
+        description = "Processes user registration data and displays a loading page"
+    )
     @PostMapping("/submit")
     public String submitForm(
-            @RequestParam String name,
-            @RequestParam String email,
-            @RequestParam String password,
+            @Parameter(description = "User's full name") @RequestParam String name,
+            @Parameter(description = "User's email address") @RequestParam String email,
+            @Parameter(description = "User's password") @RequestParam String password,
             HttpSession session,
             Model model) {
 
