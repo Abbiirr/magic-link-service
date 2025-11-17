@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Complete Your Setup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .step-card {
+            min-height: 400px;
+        }
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: #28a745;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .success-icon svg {
+            width: 50px;
+            height: 50px;
+            fill: white;
+        }
+        .spinner-border-lg {
+            width: 4rem;
+            height: 4rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+
+            <!-- Step 1: Form Input -->
+            <div id="step-form" class="card step-card">
+                <div class="card-body">
+                    <h3 class="card-title mb-4">Complete Your Profile</h3>
+                    <p class="text-muted mb-4">Hi <strong th:text="${email}"></strong>, please complete your profile to continue.</p>
+
+                    <form id="magicLinkForm">
+                        <input type="hidden" id="token" th:value="${token}">
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="name" required placeholder="Enter your full name">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="company" class="form-label">Company</label>
+                            <input type="text" class="form-control" id="company" placeholder="Enter your company name (optional)">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select class="form-select" id="role">
+                                <option value="">Select your role (optional)</option>
+                                <option value="developer">Developer</option>
+                                <option value="designer">Designer</option>
+                                <option value="manager">Manager</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-3">
+                            Complete Setup
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Step 2: Loading State -->
+            <div id="step-loading" class="card step-card d-none">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border spinner-border-lg text-primary mb-4" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h4 class="mb-3">Processing Your Information</h4>
+                    <p class="text-muted mb-4">Please wait while we set up your account...</p>
+                    <div class="progress" style="height: 25px;">
+                        <div id="progressBar"
+                             class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: 0%"
+                             aria-valuenow="0"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                            <span id="progressText">0%</span>
+                        </div>
+                    </div>
+                    <p class="text-muted mt-3 small">This may take a few seconds...</p>
+                </div>
+            </div>
+
+            <!-- Step 3: Success State -->
+            <div id="step-success" class="card step-card d-none">
+                <div class="card-body text-center py-5">
+                    <div class="success-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                            <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                        </svg>
+                    </div>
+                    <h4 class="mb-3">All Set!</h4>
+                    <p class="text-muted mb-4">Your account has been successfully set up.</p>
+                    <div class="spinner-border text-success mb-3" role="status">
+                        <span class="visually-hidden">Redirecting...</span>
+                    </div>
+                    <p class="text-muted">Redirecting you to your dashboard...</p>
+                </div>
+            </div>
+
+            <!-- Step 4: Error State -->
+            <div id="step-error" class="card step-card d-none">
+                <div class="card-body text-center py-5">
+                    <div class="text-danger mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
+                        </svg>
+                    </div>
+                    <h4 class="mb-3">Oops! Something went wrong</h4>
+                    <p class="text-muted mb-4" id="errorMessage">An error occurred while processing your request.</p>
+                    <a href="/login" class="btn btn-primary">Back to Login</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('magicLinkForm');
+    const token = document.getElementById('token').value;
+
+    const stepForm = document.getElementById('step-form');
+    const stepLoading = document.getElementById('step-loading');
+    const stepSuccess = document.getElementById('step-success');
+    const stepError = document.getElementById('step-error');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const errorMessage = document.getElementById('errorMessage');
+
+    let pollingInterval = null;
+
+    // Handle form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        // Collect form data
+        const formData = {
+            name: document.getElementById('name').value,
+            company: document.getElementById('company').value || '',
+            role: document.getElementById('role').value || ''
+        };
+
+        console.log('Submitting form data:', formData);
+
+        // Show loading step
+        stepForm.classList.add('d-none');
+        stepLoading.classList.remove('d-none');
+
+        try {
+            // Submit form in background
+            const response = await fetch('/magic-link/process-form?token=' + encodeURIComponent(token), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                console.log('Form submitted successfully, starting polling...');
+                // Start polling for completion
+                pollForCompletion(token);
+            } else {
+                console.error('Form submission failed:', result.message);
+                showError(result.message || 'Failed to submit form. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            showError('An error occurred. Please try again.');
+        }
+    });
+
+    // Poll for background task completion
+    function pollForCompletion(token) {
+        pollingInterval = setInterval(async function() {
+            try {
+                const response = await fetch('/magic-link/check-status?token=' + encodeURIComponent(token));
+                const result = await response.json();
+
+                console.log('Poll result:', result);
+
+                // Update progress bar
+                const progress = result.progress || 0;
+                progressBar.style.width = progress + '%';
+                progressBar.setAttribute('aria-valuenow', progress);
+                progressText.textContent = progress + '%';
+
+                if (result.status === 'completed') {
+                    clearInterval(pollingInterval);
+
+                    // Show success
+                    stepLoading.classList.add('d-none');
+                    stepSuccess.classList.remove('d-none');
+
+                    // Redirect after 2 seconds
+                    setTimeout(function() {
+                        window.location.href = result.nextStep || '/';
+                    }, 2000);
+                } else if (result.status === 'failed') {
+                    clearInterval(pollingInterval);
+                    showError(result.message || 'Processing failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+                clearInterval(pollingInterval);
+                showError('Connection error. Please try again.');
+            }
+        }, 2000); // Poll every 2 seconds
+    }
+
+    // Show error state
+    function showError(message) {
+        stepForm.classList.add('d-none');
+        stepLoading.classList.add('d-none');
+        stepSuccess.classList.add('d-none');
+        stepError.classList.remove('d-none');
+        errorMessage.textContent = message;
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+    });
+});
+</script>
+</body>
+</html>
