@@ -38,7 +38,12 @@ public class SecurityConfig {
                     "/login/oauth2/**",
                     "/qr/scan",
                     "/qr/status",
-                    "/qr/login/**"
+                    "/qr/login/**",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**",
+                    "/swagger-ui.html",
+                    "/form/**",
+                    "/register/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

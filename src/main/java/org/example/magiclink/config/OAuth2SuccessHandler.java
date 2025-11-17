@@ -45,8 +45,18 @@ public class OAuth2SuccessHandler extends SavedRequestAwareAuthenticationSuccess
 
             HttpSession session = request.getSession(false);
 
-            // Check if this is part of magic link flow
+            // Check if this is part of registration magic link flow
             if (session != null) {
+                String registrationToken = (String) session.getAttribute("registration_token");
+                if (registrationToken != null) {
+                    log.info("Registration flow detected, redirecting to registration form");
+                    // Store OAuth user info in session for registration page
+                    session.setAttribute("oauth_email", email);
+                    session.setAttribute("oauth_google_id", googleId);
+                    response.sendRedirect("/register/form");
+                    return;
+                }
+
                 String pendingToken = (String) session.getAttribute("pending_magic_token");
                 String pendingEmail = (String) session.getAttribute("pending_magic_email");
 
