@@ -81,7 +81,7 @@ spring:
       lifecycle-management: start_and_stop
 
 server:
-  port: 8080
+  port: 18080
 
 auth:
   headers:
