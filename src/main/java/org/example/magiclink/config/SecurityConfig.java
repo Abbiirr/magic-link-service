@@ -38,7 +38,8 @@ public class SecurityConfig {
                     "/login/oauth2/**",
                     "/qr/scan",
                     "/qr/status",
-                    "/qr/login/**"
+                    "/qr/login/**",
+                    "/form/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
