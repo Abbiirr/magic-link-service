@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Room Chat Application</title>
+    <link rel="stylesheet" href="/css/chat.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Room Selection Screen -->
+        <div id="room-selection" class="screen active">
+            <div class="container">
+                <h1>Multi-Room Chat</h1>
+
+                <div class="section">
+                    <h2>Create New Room</h2>
+                    <input type="text" id="room-name" placeholder="Room Name" />
+                    <input type="text" id="room-description" placeholder="Room Description (optional)" />
+                    <button onclick="createRoom()">Create Room</button>
+                </div>
+
+                <div class="section">
+                    <h2>Available Rooms</h2>
+                    <div id="rooms-list"></div>
+                    <button onclick="loadRooms()">Refresh Rooms</button>
+                </div>
+
+                <div class="section">
+                    <h2>Join Room</h2>
+                    <input type="text" id="username" placeholder="Your Username" />
+                    <input type="text" id="room-id-input" placeholder="Room ID" />
+                    <button onclick="joinRoom()">Join Room</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chat-screen" class="screen">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div>
+                        <h2 id="current-room-name">Room Name</h2>
+                        <p id="room-info">Room ID: <span id="current-room-id"></span> | Users: <span id="active-users">0</span></p>
+                    </div>
+                    <button onclick="leaveRoom()">Leave Room</button>
+                </div>
+
+                <div id="messages-area" class="messages-area"></div>
+
+                <div id="typing-indicator" class="typing-indicator"></div>
+
+                <div class="message-input-area">
+                    <input type="text" id="message-input" placeholder="Type a message..." onkeyup="handleTyping(event)" />
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/chat.js"></script>
+</body>
+</html>

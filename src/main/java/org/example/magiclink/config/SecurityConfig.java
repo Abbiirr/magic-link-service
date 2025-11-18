@@ -38,7 +38,11 @@ public class SecurityConfig {
                     "/login/oauth2/**",
                     "/qr/scan",
                     "/qr/status",
-                    "/qr/login/**"
+                    "/qr/login/**",
+                    "/ws/**",
+                    "/api/chatrooms/**",
+                    "/chat/**",
+                    "/chat.html"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
