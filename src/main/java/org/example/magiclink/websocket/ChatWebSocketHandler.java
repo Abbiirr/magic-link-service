@@ -223,13 +223,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         List<Room> rooms = roomManager.getAllRooms();
 
         List<Map<String, Object>> roomList = rooms.stream()
-                .map(room -> Map.of(
-                        "roomId", room.getRoomId(),
-                        "name", room.getName(),
-                        "type", room.getType().toString(),
-                        "memberCount", roomManager.getRoomMembers(room.getRoomId()).size(),
-                        "persistent", room.isPersistent()
-                ))
+                .map(room -> {
+                    Map<String, Object> roomMap = new HashMap<>();
+                    roomMap.put("roomId", room.getRoomId());
+                    roomMap.put("name", room.getName());
+                    roomMap.put("type", room.getType().toString());
+                    roomMap.put("memberCount", roomManager.getRoomMembers(room.getRoomId()).size());
+                    roomMap.put("persistent", room.isPersistent());
+                    return roomMap;
+                })
                 .toList();
 
         ResponseMessage response = ResponseMessage.success(

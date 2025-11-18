@@ -6,6 +6,7 @@ import org.example.magiclink.service.RoomManager;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,16 +53,18 @@ public class RoomController {
         List<Room> rooms = roomManager.getAllRooms();
 
         List<Map<String, Object>> roomList = rooms.stream()
-                .map(room -> Map.of(
-                        "roomId", room.getRoomId(),
-                        "name", room.getName(),
-                        "description", room.getDescription() != null ? room.getDescription() : "",
-                        "type", room.getType().toString(),
-                        "memberCount", roomManager.getRoomMembers(room.getRoomId()).size(),
-                        "persistent", room.isPersistent(),
-                        "createdBy", room.getCreatedBy(),
-                        "createdAt", room.getCreatedAt().toString()
-                ))
+                .map(room -> {
+                    Map<String, Object> roomMap = new HashMap<>();
+                    roomMap.put("roomId", room.getRoomId());
+                    roomMap.put("name", room.getName());
+                    roomMap.put("description", room.getDescription() != null ? room.getDescription() : "");
+                    roomMap.put("type", room.getType().toString());
+                    roomMap.put("memberCount", roomManager.getRoomMembers(room.getRoomId()).size());
+                    roomMap.put("persistent", room.isPersistent());
+                    roomMap.put("createdBy", room.getCreatedBy());
+                    roomMap.put("createdAt", room.getCreatedAt().toString());
+                    return roomMap;
+                })
                 .toList();
 
         return ResponseEntity.ok(Map.of(
@@ -79,19 +82,20 @@ public class RoomController {
         }
 
         Room room = roomOpt.get();
+        Map<String, Object> roomData = new HashMap<>();
+        roomData.put("roomId", room.getRoomId());
+        roomData.put("name", room.getName());
+        roomData.put("description", room.getDescription() != null ? room.getDescription() : "");
+        roomData.put("type", room.getType().toString());
+        roomData.put("memberCount", roomManager.getRoomMembers(room.getRoomId()).size());
+        roomData.put("members", roomManager.getRoomMembers(room.getRoomId()));
+        roomData.put("persistent", room.isPersistent());
+        roomData.put("createdBy", room.getCreatedBy());
+        roomData.put("createdAt", room.getCreatedAt().toString());
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "room", Map.of(
-                        "roomId", room.getRoomId(),
-                        "name", room.getName(),
-                        "description", room.getDescription() != null ? room.getDescription() : "",
-                        "type", room.getType().toString(),
-                        "memberCount", roomManager.getRoomMembers(room.getRoomId()).size(),
-                        "members", roomManager.getRoomMembers(room.getRoomId()),
-                        "persistent", room.isPersistent(),
-                        "createdBy", room.getCreatedBy(),
-                        "createdAt", room.getCreatedAt().toString()
-                )
+                "room", roomData
         ));
     }
 
