@@ -33,20 +33,53 @@ public class OAuth2SuccessHandler extends SavedRequestAwareAuthenticationSuccess
         if (authentication instanceof OAuth2AuthenticationToken) {
             OAuth2AuthenticationToken oauth2Token = (OAuth2AuthenticationToken) authentication;
             OAuth2User oauth2User = oauth2Token.getPrincipal();
+            String registrationId = oauth2Token.getAuthorizedClientRegistrationId();
 
+            // Extract email - works for both Revo and Google
             String email = oauth2User.getAttribute("email");
-            String googleId = oauth2User.getAttribute("sub");
+            if (email == null) {
+                email = oauth2User.getAttribute("preferred_username");
+            }
+
+            // Extract user ID - works for both Revo and Google
+            String userId = oauth2User.getAttribute("sub");
+            if (userId == null) {
+                userId = oauth2User.getAttribute("preferred_username");
+            }
 
             if (email == null) {
-                log.error("No email in OAuth2 response");
+                log.error("No email in OAuth2 response from provider: {}", registrationId);
                 response.sendRedirect("/login?error=no_email");
                 return;
             }
 
+            log.info("OAuth2 authentication from provider: {}, email: {}", registrationId, email);
+
             HttpSession session = request.getSession(false);
 
-            // Check if this is part of magic link flow
+            // Check if this is part of registration magic link flow
             if (session != null) {
+                // Check for form flow
+                String formToken = (String) session.getAttribute("form_token");
+                if (formToken != null) {
+                    log.info("Form flow detected, redirecting to form registration page");
+                    // Store OAuth user info in session for form page
+                    session.setAttribute("form_oauth_email", email);
+                    session.setAttribute("form_oauth_user_id", userId);
+                    response.sendRedirect("/form/register");
+                    return;
+                }
+
+                String registrationToken = (String) session.getAttribute("registration_token");
+                if (registrationToken != null) {
+                    log.info("Registration flow detected, redirecting to registration form");
+                    // Store OAuth user info in session for registration page
+                    session.setAttribute("oauth_email", email);
+                    session.setAttribute("oauth_user_id", userId);
+                    response.sendRedirect("/register/form");
+                    return;
+                }
+
                 String pendingToken = (String) session.getAttribute("pending_magic_token");
                 String pendingEmail = (String) session.getAttribute("pending_magic_email");
 
@@ -80,8 +113,8 @@ public class OAuth2SuccessHandler extends SavedRequestAwareAuthenticationSuccess
             }
 
             // Regular OAuth signup/signin flow
-            User user = userService.findOrCreateFromGoogle(email, googleId);
-            log.info("OAuth authentication successful for {}", email);
+            User user = userService.findOrCreateFromGoogle(email, userId);
+            log.info("OAuth authentication successful for {} from provider {}", email, registrationId);
             response.sendRedirect("/");
         } else {
             super.onAuthenticationSuccess(request, response, authentication);

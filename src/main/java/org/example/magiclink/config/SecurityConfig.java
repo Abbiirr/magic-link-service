@@ -41,7 +41,12 @@ public class SecurityConfig {
                     "/qr/login/**",
                     "/ws/**",
                     "/api/v1/rooms/**",
-                    "/chatroom-test"
+                    "/chatroom-test",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**",
+                    "/swagger-ui.html",
+                    "/form/**",
+                    "/register/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
